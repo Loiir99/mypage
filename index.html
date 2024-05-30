@@ -1,10 +1,27 @@
-echo "<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
-  <title>Meine Website</title>
+    <title>Balloon Control</title>
 </head>
 <body>
-  <h1>Willkommen auf meiner Website!</h1>
-  <p>Diese Website wird mit GitHub Pages gehostet.</p>
+    <h1>Balloon Control</h1>
+    <button onclick="sendCommand('start_pump')">Start Pump</button>
+    <button onclick="sendCommand('stop_pump')">Stop Pump</button>
+    <button onclick="sendCommand('open_valve')">Open Valve</button>
+    <button onclick="sendCommand('close_valve')">Close Valve</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.1.0/mqtt.min.js"></script>
+    <script>
+        const client = mqtt.connect('wss://test.mosquitto.org:8081/mqtt');
+
+        client.on('connect', function () {
+            console.log('Connected');
+        });
+
+        function sendCommand(command) {
+            client.publish('balloon/control', command);
+            console.log('Command sent: ' + command);
+        }
+    </script>
 </body>
 </html>
