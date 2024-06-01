@@ -1,26 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Balloon Control</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.1.0/mqtt.min.js"></script>
 </head>
 <body>
-    <h1>Balloon Control</h1>
-    <button onclick="sendCommand('start_pump')">Start Pump</button>
-    <button onclick="sendCommand('stop_pump')">Stop Pump</button>
-    <button onclick="sendCommand('open_valve')">Open Valve</button>
-    <button onclick="sendCommand('close_valve')">Close Valve</button>
+    <h1>Control the Balloon</h1>
+    <label for="balloonSize">Balloon Size (%):</label>
+    <input type="number" id="balloonSize" name="balloonSize" min="0" max="100" step="1">
+    <button onclick="setBalloonSize()">Bestätigen</button>
+    <br><br>
+    <button onclick="addFivePercent()">Add 5%</button>
+    <button onclick="releaseValve()">Release Valve</button>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.1.0/mqtt.min.js"></script>
     <script>
-        const client = mqtt.connect('wss://test.mosquitto.org:8081/mqtt');
+        const client = mqtt.connect('wss://test.mosquitto.org:8081');
 
         client.on('connect', function () {
-            console.log('Connected');
+            console.log('Connected to broker');
         });
 
-        function sendCommand(command) {
-            client.publish('balloon/control', command);
-            console.log('Command sent: ' + command);
+        function setBalloonSize() {
+            let size = document.getElementById('balloonSize').value;
+            if (size >= 0 && size <= 100) {
+                client.publish('balloon/control', 'size:' + size);
+                console.log('Set balloon size command sent: ' + size);
+            } else {
+                alert('Please enter a value between 0 and 100.');
+            }
+        }
+
+        function addFivePercent() {
+            client.publish('balloon/control', 'add:5');
+            console.log('Add 5% command sent');
+        }
+
+        function releaseValve() {
+            client.publish('balloon/control', 'release');
+            console.log('Release valve command sent');
         }
     </script>
 </body>
