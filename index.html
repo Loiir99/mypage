@@ -3,44 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MQTT Control</title>
+    <title>Balloon Controller</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.1.0/mqtt.min.js"></script>
-</head>
-<body>
-    <h1>Control the Balloon</h1>
-    <label for="balloonSize">Balloon Size (%):</label>
-    <input type="number" id="balloonSize" name="balloonSize" min="0" max="100" step="1">
-    <button onclick="setBalloonSize()">Bestätigen</button>
-    <br><br>
-    <button onclick="addFivePercent()">Add 5%</button>
-    <button onclick="releaseValve()">Release Valve</button>
-
     <script>
-        const client = mqtt.connect('wss://test.mosquitto.org:8081');
+        var client;
+        var host = 'test.mosquitto.org';
+        var port = 8081;
+        var topic = 'balloon/control';
 
-        client.on('connect', function () {
-            console.log('Connected to broker');
-        });
+        function connect() {
+            client = mqtt.connect(`wss://${host}:${port}`);
+            client.on('connect', function () {
+                console.log('Connected to MQTT broker');
+            });
+            client.on('error', function (err) {
+                console.log('Connection error: ' + err);
+            });
+        }
 
-        function setBalloonSize() {
-            let size = document.getElementById('balloonSize').value;
-            if (size >= 0 && size <= 100) {
-                client.publish('balloon/control', 'size:' + size);
-                console.log('Set balloon size command sent: ' + size);
+        function sendMessage(message) {
+            if (client && client.connected) {
+                client.publish(topic, message);
             } else {
-                alert('Please enter a value between 0 and 100.');
+                console.log('Not connected to MQTT broker');
             }
         }
 
+        function setBalloonSize() {
+            var size = document.getElementById('sizeInput').value;
+            sendMessage('size:' + size);
+        }
+
         function addFivePercent() {
-            client.publish('balloon/control', 'add:5');
-            console.log('Add 5% command sent');
+            sendMessage('add:5');
         }
 
         function releaseValve() {
-            client.publish('balloon/control', 'release');
-            console.log('Release valve command sent');
+            sendMessage('release');
         }
+
+        window.onload = connect;
     </script>
+</head>
+<body>
+    <h1>Balloon Controller</h1>
+    <label for="sizeInput">Balloon Size (0-100%):</label>
+    <input type="number" id="sizeInput" min="0" max="100">
+    <button onclick="setBalloonSize()">Confirm</button>
+    <button onclick="addFivePercent()">Add 5%</button>
+    <button onclick="releaseValve()">Release Valve</button>
 </body>
 </html>
