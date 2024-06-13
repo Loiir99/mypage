@@ -97,7 +97,85 @@
                 }
             }
 
-            runStep(1, 1);
+            function runProgram1() {
+                var currentSize = 0;
+                var stepTime = holdTime;
+                function step1(currentStep) {
+                    if (currentStep <= steps) {
+                        currentSize = sizeIncrement * currentStep;
+                        sendMessage('balloon/control', 'size:' + currentSize);
+                        setTimeout(function() {
+                            step1(currentStep + 1);
+                        }, stepTime);
+                    } else {
+                        setTimeout(function() {
+                            sendMessage('balloon/control', 'release');
+                            setTimeout(function() {
+                                if (--repeats > 0) step1(1);
+                            }, pauseTime);
+                        }, pauseTime);
+                    }
+                }
+                step1(1);
+            }
+
+            function runProgram2() {
+                function step2(currentStep, lastStepSize) {
+                    if (currentStep <= steps) {
+                        var targetSize = sizeIncrement * currentStep;
+                        sendMessage('balloon/control', 'size:' + targetSize);
+                        setTimeout(function() {
+                            sendMessage('balloon/control', 'release');
+                            setTimeout(function() {
+                                step2(currentStep + 1, targetSize);
+                            }, restTime);
+                        }, holdTime);
+                    } else if (--repeats > 0) {
+                        setTimeout(function() {
+                            step2(1, 0);
+                        }, pauseTime);
+                    }
+                }
+                step2(1, 0);
+            }
+
+            function runProgram3() {
+                function step3(currentStep, lastStepSize) {
+                    if (currentStep <= steps) {
+                        var targetSize = sizeIncrement * currentStep;
+                        sendMessage('balloon/control', 'size:' + targetSize);
+                        setTimeout(function() {
+                            sendMessage('balloon/control', 'release');
+                            setTimeout(function() {
+                                step3(currentStep + 1, targetSize);
+                            }, restTime);
+                        }, holdTime);
+                    } else if (--repeats > 0) {
+                        sendMessage('balloon/control', 'size:' + lastStepSize);
+                        setTimeout(function() {
+                            sendMessage('balloon/control', 'release');
+                            setTimeout(function() {
+                                step3(1, 0);
+                            }, restTime);
+                        }, restTime);
+                    }
+                }
+                step3(1, 0);
+            }
+
+            switch (programType) {
+                case 'example1':
+                    runProgram1();
+                    break;
+                case 'example2':
+                    runProgram2();
+                    break;
+                case 'example3':
+                    runProgram3();
+                    break;
+                default:
+                    console.error('Invalid program type');
+            }
         }
     </script>
 </head>
