@@ -149,7 +149,10 @@
             runRandomProgram();
         }
 
-        document.addEventListener('DOMContentLoaded', setupMQTT);
+        document.addEventListener('DOMContentLoaded', () => {
+            setupMQTT();
+            document.getElementById("loginContainer").style.display = "block";
+        });
     </script>
 </head>
 <body>
@@ -228,3 +231,4 @@
     </div>
 </body>
 </html>
+
