@@ -4,7 +4,10 @@
     <title>Balloon Control</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.1.0/mqtt.min.js"></script>
     <style>
-        #loginContainer, #mainContainer, #randomProgramContainer {
+        #loginContainer {
+            display: block;
+        }
+        #mainContainer, #programmingContainer, #randomProgramContainer {
             display: none;
         }
     </style>
@@ -126,6 +129,11 @@
             }
         }
 
+        function showProgrammingPage() {
+            document.getElementById("mainContainer").style.display = "none";
+            document.getElementById("programmingContainer").style.display = "block";
+        }
+
         function startRandomProgram() {
             stopFlag = false;
 
@@ -149,10 +157,7 @@
             runRandomProgram();
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            setupMQTT();
-            document.getElementById("loginContainer").style.display = "block";
-        });
+        document.addEventListener('DOMContentLoaded', setupMQTT);
     </script>
 </head>
 <body>
@@ -183,6 +188,21 @@
         <div>
             <button onclick="stopProgram()">Stop Program</button>
         </div>
+        <div>
+            <button onclick="showProgrammingPage()">Programming</button>
+        </div>
+        <h2>Random Program</h2>
+        <div id="randomProgramContainer">
+            <label for="randomDuration">Duration (seconds): </label>
+            <input type="number" id="randomDuration" min="1">
+            <label for="randomMaxSize">Max Size (%): </label>
+            <input type="number" id="randomMaxSize" min="1" max="100">
+            <button onclick="startRandomProgram()">Start Random Program</button>
+        </div>
+    </div>
+
+    <div id="programmingContainer">
+        <h1>Programming</h1>
         <h2>Program Settings</h2>
         <div>
             <label for="stepsInput">Number of Steps: </label>
@@ -219,16 +239,6 @@
         <div>
             <button onclick="startProgram()">Start Program</button>
         </div>
-
-        <h2>Random Program</h2>
-        <div id="randomProgramContainer">
-            <label for="randomDuration">Duration (seconds): </label>
-            <input type="number" id="randomDuration" min="1">
-            <label for="randomMaxSize">Max Size (%): </label>
-            <input type="number" id="randomMaxSize" min="1" max="100">
-            <button onclick="startRandomProgram()">Start Random Program</button>
-        </div>
     </div>
 </body>
 </html>
-
