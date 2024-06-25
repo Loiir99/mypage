@@ -3,228 +3,228 @@
 <head>
     <title>Balloon Control</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.1.0/mqtt.min.js"></script>
+    <style>
+        #loginContainer, #mainContainer, #randomProgramContainer {
+            display: none;
+        }
+    </style>
     <script>
-        var client;
+        let client;
+        let topic = "balloon/control";
+        let currentSize = 0;
+        let stopFlag = false;
+        const correctPassword = "1234";
 
-        function connectMQTT() {
-            client = mqtt.connect('wss://test.mosquitto.org:8081/mqtt');
-            client.on('connect', function () {
-                console.log('Connected to MQTT broker');
-                client.subscribe('balloon/size');
+        function setupMQTT() {
+            client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
+            client.on("connect", function () {
+                console.log("Connected to MQTT broker");
+                client.subscribe(topic);
             });
-            client.on('message', function (topic, message) {
-                if (topic === 'balloon/size') {
-                    document.getElementById('currentSize').innerText = message.toString() + '%';
+
+            client.on("message", function (topic, message) {
+                console.log("Message: " + message.toString());
+                if (message.toString().startsWith("currentSize:")) {
+                    currentSize = parseInt(message.toString().substring(12));
+                    document.getElementById("currentSizeDisplay").innerText = currentSize + "%";
                 }
-            });
-            client.on('error', function (err) {
-                console.error('Connection error: ', err);
             });
         }
 
-        function sendMessage(topic, message) {
-            if (client && client.connected) {
-                client.publish(topic, message);
-                console.log('Message sent: ', message);
-            } else {
-                console.error('MQTT client is not connected');
-            }
+        function sendCommand(command) {
+            client.publish(topic, command);
         }
 
         function setBalloonSize() {
-            var size = document.getElementById('sizeInput').value;
-            if (size >= 0 && size <= 100) {
-                sendMessage('balloon/control', 'size:' + size);
-            } else {
-                alert('Please enter a size between 0 and 100');
-            }
+            let size = document.getElementById("sizeInput").value;
+            sendCommand("size:" + size);
         }
 
-        function addFivePercent() {
-            sendMessage('balloon/control', 'add:5');
+        function addBalloonSize() {
+            sendCommand("add:5");
         }
 
         function releaseValve() {
-            sendMessage('balloon/control', 'release');
+            sendCommand("release");
         }
 
-        window.onload = function() {
-            connectMQTT();
-        }
-
-        function showProgrammingPage() {
-            document.getElementById('controlPage').style.display = 'none';
-            document.getElementById('programmingPage').style.display = 'block';
-        }
-
-        function showControlPage() {
-            document.getElementById('controlPage').style.display = 'block';
-            document.getElementById('programmingPage').style.display = 'none';
+        function stopProgram() {
+            stopFlag = true;
+            releaseValve();
         }
 
         function startProgram() {
-            var steps = parseInt(document.getElementById('steps').value);
-            var maxSize = parseInt(document.getElementById('maxSize').value);
-            var holdTime = parseInt(document.getElementById('holdTime').value) * 1000;
-            var pauseTime = parseInt(document.getElementById('pauseTime').value) * 1000;
-            var restTime = parseInt(document.getElementById('restTime').value) * 1000;
-            var repeats = parseInt(document.getElementById('repeats').value);
-            var programType = document.getElementById('programType').value;
+            stopFlag = false;
 
-            var sizeIncrement = Math.floor(maxSize / steps);
+            let maxSteps = parseInt(document.getElementById("stepsInput").value);
+            let maxSize = parseInt(document.getElementById("maxSizeInput").value);
+            let holdTime = parseInt(document.getElementById("holdTimeInput").value) * 1000;
+            let restTime = parseInt(document.getElementById("restTimeInput").value) * 1000;
+            let pauseTime = parseInt(document.getElementById("pauseTimeInput").value) * 1000;
+            let repetitions = parseInt(document.getElementById("repetitionsInput").value);
+            let programType = document.getElementById("programType").value;
 
-            function runStep(currentStep, repeat) {
-                if (currentStep <= steps) {
-                    var targetSize = sizeIncrement * currentStep;
-                    sendMessage('balloon/control', 'size:' + targetSize);
-                    setTimeout(function() {
-                        if (programType === "example3" && currentStep === steps) {
-                            sendMessage('balloon/control', 'release');
-                            setTimeout(function() {
-                                runStep(currentStep + 1, repeat);
-                            }, restTime);
-                        } else {
-                            runStep(currentStep + 1, repeat);
+            async function runProgram() {
+                if (stopFlag) return;
+
+                if (programType === "1") {
+                    for (let i = 1; i <= repetitions; i++) {
+                        for (let step = 1; step <= maxSteps; step++) {
+                            if (stopFlag) return;
+                            let size = Math.round((maxSize / maxSteps) * step);
+                            sendCommand("size:" + size);
+                            await sleep(holdTime);
                         }
-                    }, holdTime);
-                } else {
-                    sendMessage('balloon/control', 'release');
-                    if (repeat < repeats) {
-                        setTimeout(function() {
-                            runStep(1, repeat + 1);
-                        }, pauseTime);
+                        if (stopFlag) return;
+                        await sleep(restTime);
+                        releaseValve();
+                        await sleep(pauseTime);
+                    }
+                } else if (programType === "2") {
+                    for (let i = 1; i <= repetitions; i++) {
+                        for (let step = 1; step <= maxSteps; step++) {
+                            if (stopFlag) return;
+                            let size = Math.round((maxSize / maxSteps) * step);
+                            sendCommand("size:" + size);
+                            await sleep(holdTime);
+                            releaseValve();
+                            await sleep(pauseTime);
+                        }
+                    }
+                } else if (programType === "3") {
+                    for (let i = 1; i <= repetitions; i++) {
+                        for (let step = 1; step <= maxSteps; step++) {
+                            if (stopFlag) return;
+                            let size = Math.round((maxSize / maxSteps) * step);
+                            sendCommand("size:" + size);
+                            await sleep(holdTime);
+                            releaseValve();
+                            await sleep(pauseTime);
+                            sendCommand("size:" + size);
+                            await sleep(holdTime);
+                            releaseValve();
+                            await sleep(pauseTime);
+                        }
                     }
                 }
             }
 
-            function runProgram1() {
-                var currentSize = 0;
-                var stepTime = holdTime;
-                function step1(currentStep) {
-                    if (currentStep <= steps) {
-                        currentSize = sizeIncrement * currentStep;
-                        sendMessage('balloon/control', 'size:' + currentSize);
-                        setTimeout(function() {
-                            step1(currentStep + 1);
-                        }, stepTime);
-                    } else {
-                        setTimeout(function() {
-                            sendMessage('balloon/control', 'release');
-                            setTimeout(function() {
-                                if (--repeats > 0) step1(1);
-                            }, pauseTime);
-                        }, pauseTime);
-                    }
-                }
-                step1(1);
-            }
+            runProgram();
+        }
 
-            function runProgram2() {
-                function step2(currentStep, lastStepSize) {
-                    if (currentStep <= steps) {
-                        var targetSize = sizeIncrement * currentStep;
-                        sendMessage('balloon/control', 'size:' + targetSize);
-                        setTimeout(function() {
-                            sendMessage('balloon/control', 'release');
-                            setTimeout(function() {
-                                step2(currentStep + 1, targetSize);
-                            }, restTime);
-                        }, holdTime);
-                    } else if (--repeats > 0) {
-                        setTimeout(function() {
-                            step2(1, 0);
-                        }, pauseTime);
-                    }
-                }
-                step2(1, 0);
-            }
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
 
-            function runProgram3() {
-                function step3(currentStep, lastStepSize) {
-                    if (currentStep <= steps) {
-                        var targetSize = sizeIncrement * currentStep;
-                        sendMessage('balloon/control', 'size:' + targetSize);
-                        setTimeout(function() {
-                            sendMessage('balloon/control', 'release');
-                            setTimeout(function() {
-                                step3(currentStep + 1, targetSize);
-                            }, restTime);
-                        }, holdTime);
-                    } else if (--repeats > 0) {
-                        sendMessage('balloon/control', 'size:' + lastStepSize);
-                        setTimeout(function() {
-                            sendMessage('balloon/control', 'release');
-                            setTimeout(function() {
-                                step3(1, 0);
-                            }, restTime);
-                        }, restTime);
-                    }
-                }
-                step3(1, 0);
-            }
-
-            switch (programType) {
-                case 'example1':
-                    runProgram1();
-                    break;
-                case 'example2':
-                    runProgram2();
-                    break;
-                case 'example3':
-                    runProgram3();
-                    break;
-                default:
-                    console.error('Invalid program type');
+        function login() {
+            const password = document.getElementById("passwordInput").value;
+            if (password === correctPassword) {
+                document.getElementById("loginContainer").style.display = "none";
+                document.getElementById("mainContainer").style.display = "block";
+            } else {
+                alert("Incorrect password!");
             }
         }
+
+        function startRandomProgram() {
+            stopFlag = false;
+
+            let duration = parseInt(document.getElementById("randomDuration").value) * 1000;
+            let maxSize = parseInt(document.getElementById("randomMaxSize").value);
+            let startTime = Date.now();
+
+            async function runRandomProgram() {
+                while (!stopFlag && Date.now() - startTime < duration) {
+                    if (stopFlag) return;
+
+                    let size = Math.floor(Math.random() * maxSize) + 1;
+                    let holdTime = Math.floor(Math.random() * 5000) + 1000; // Hold between 1 and 5 seconds
+
+                    sendCommand("size:" + size);
+                    await sleep(holdTime);
+                }
+                releaseValve();
+            }
+
+            runRandomProgram();
+        }
+
+        document.addEventListener('DOMContentLoaded', setupMQTT);
     </script>
 </head>
 <body>
-    <div id="controlPage">
-        <h1>Balloon Control</h1>
-        <label for="sizeInput">Balloon Size (%):</label>
-        <input type="number" id="sizeInput" name="sizeInput" min="0" max="100">
-        <button onclick="setBalloonSize()">Set Size</button>
-        <br><br>
-        <button onclick="addFivePercent()">Add 5%</button>
-        <br><br>
-        <button onclick="releaseValve()">Release Valve</button>
-        <br><br>
-        <h2>Current Balloon Size: <span id="currentSize">0%</span></h2>
-        <br><br>
-        <button onclick="showProgrammingPage()">Go to Programming Page</button>
+    <div id="loginContainer">
+        <h1>Login</h1>
+        <label for="passwordInput">Password: </label>
+        <input type="password" id="passwordInput">
+        <button onclick="login()">Login</button>
     </div>
 
-    <div id="programmingPage" style="display:none;">
-        <h1>Balloon Programming</h1>
-        <label for="steps">Number of Steps to Max Size:</label>
-        <input type="number" id="steps" name="steps" min="1" required>
-        <br><br>
-        <label for="maxSize">Max Size (%):</label>
-        <input type="number" id="maxSize" name="maxSize" min="1" max="100" required>
-        <br><br>
-        <label for="holdTime">Hold Time Between Steps (seconds):</label>
-        <input type="number" id="holdTime" name="holdTime" min="1" required>
-        <br><br>
-        <label for="pauseTime">Pause Time After Full Cycle (seconds):</label>
-        <input type="number" id="pauseTime" name="pauseTime" min="1" required>
-        <br><br>
-        <label for="restTime">Rest Time at 0% (seconds):</label>
-        <input type="number" id="restTime" name="restTime" min="1" required>
-        <br><br>
-        <label for="repeats">Number of Repeats:</label>
-        <input type="number" id="repeats" name="repeats" min="1" required>
-        <br><br>
-        <label for="programType">Program Type:</label>
-        <select id="programType" name="programType">
-            <option value="example1">Example 1</option>
-            <option value="example2">Example 2</option>
-            <option value="example3">Example 3</option>
-        </select>
-        <br><br>
-        <button onclick="startProgram()">Start Program</button>
-        <br><br>
-        <button onclick="showControlPage()">Back to Control Page</button>
+    <div id="mainContainer">
+        <h1>Balloon Control</h1>
+        <div>
+            <label for="sizeInput">Set Balloon Size (%): </label>
+            <input type="number" id="sizeInput" min="0" max="100">
+            <button onclick="setBalloonSize()">Set Size</button>
+        </div>
+        <div>
+            <button onclick="addBalloonSize()">Add 5%</button>
+        </div>
+        <div>
+            <button onclick="releaseValve()">Release Valve</button>
+        </div>
+        <div>
+            <span>Current Balloon Size: </span>
+            <span id="currentSizeDisplay">0%</span>
+        </div>
+        <div>
+            <button onclick="stopProgram()">Stop Program</button>
+        </div>
+        <h2>Program Settings</h2>
+        <div>
+            <label for="stepsInput">Number of Steps: </label>
+            <input type="number" id="stepsInput" min="1">
+        </div>
+        <div>
+            <label for="maxSizeInput">Max Size (%): </label>
+            <input type="number" id="maxSizeInput" min="1" max="100">
+        </div>
+        <div>
+            <label for="holdTimeInput">Hold Time (seconds): </label>
+            <input type="number" id="holdTimeInput" min="1">
+        </div>
+        <div>
+            <label for="restTimeInput">Rest Time (seconds): </label>
+            <input type="number" id="restTimeInput" min="1">
+        </div>
+        <div>
+            <label for="pauseTimeInput">Pause Time (seconds): </label>
+            <input type="number" id="pauseTimeInput" min="1">
+        </div>
+        <div>
+            <label for="repetitionsInput">Number of Repetitions: </label>
+            <input type="number" id="repetitionsInput" min="1">
+        </div>
+        <div>
+            <label for="programType">Program Type: </label>
+            <select id="programType">
+                <option value="1">Example 1</option>
+                <option value="2">Example 2</option>
+                <option value="3">Example 3</option>
+            </select>
+        </div>
+        <div>
+            <button onclick="startProgram()">Start Program</button>
+        </div>
+
+        <h2>Random Program</h2>
+        <div id="randomProgramContainer">
+            <label for="randomDuration">Duration (seconds): </label>
+            <input type="number" id="randomDuration" min="1">
+            <label for="randomMaxSize">Max Size (%): </label>
+            <input type="number" id="randomMaxSize" min="1" max="100">
+            <button onclick="startRandomProgram()">Start Random Program</button>
+        </div>
     </div>
 </body>
 </html>
