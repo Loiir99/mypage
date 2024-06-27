@@ -14,10 +14,10 @@
         .hidden {
             display: none;
         }
-        #login {
+        #login, #extraLogin {
             margin: 20px;
         }
-        #main, #programming, #randomProgram {
+        #main, #programming, #randomProgram, #extra {
             display: none;
         }
         button {
@@ -28,6 +28,7 @@
     </style>
 </head>
 <body>
+    <!-- Main Login -->
     <div id="login">
         <h1>Login</h1>
         <input type="password" id="password" placeholder="Enter Password">
@@ -35,6 +36,7 @@
         <p id="loginError" style="color: red;"></p>
     </div>
 
+    <!-- Main Control -->
     <div id="main">
         <h1>Balloon Control</h1>
         <p>Aktuelle Ballongröße: <span id="currentSize">0</span>%</p>
@@ -42,10 +44,27 @@
         <button onclick="setBalloonSize()">Bestätigen</button>
         <button onclick="addBalloonSize(5)">5% hinzufügen</button>
         <button onclick="releaseValve()">Ventil öffnen</button>
-        <button onclick="showProgramming()">Programmieren</button>
-        <button onclick="showRandomProgram()">Zufallsprogramm</button>
+        <button onclick="showExtra()">Extra Funktionen</button>
     </div>
 
+    <!-- Extra Login -->
+    <div id="extraLogin" class="hidden">
+        <h1>Extra Funktionen Login</h1>
+        <input type="password" id="extraPassword" placeholder="Enter Password">
+        <button onclick="checkExtraPassword()">Login</button>
+        <p id="extraLoginError" style="color: red;"></p>
+        <button onclick="backToMain()">Zurück</button>
+    </div>
+
+    <!-- Extra Functions -->
+    <div id="extra" class="hidden">
+        <h1>Extra Funktionen</h1>
+        <button onclick="showProgramming()">Programmieren</button>
+        <button onclick="showRandomProgram()">Zufallsprogramm</button>
+        <button onclick="backToMain()">Zurück</button>
+    </div>
+
+    <!-- Programming -->
     <div id="programming" class="hidden">
         <h1>Programming</h1>
         <form>
@@ -72,6 +91,7 @@
         <button onclick="hideProgramming()">Zurück</button>
     </div>
 
+    <!-- Random Program -->
     <div id="randomProgram" class="hidden">
         <h1>Zufallsprogramm</h1>
         <form>
@@ -85,18 +105,29 @@
     </div>
 
     <script>
-        const password = "1234";
+        const mainPassword = "1234";
+        const extraPassword = "notready";
         let client;
         let intervalId;
 
         function checkPassword() {
             const enteredPassword = document.getElementById('password').value;
-            if (enteredPassword === password) {
+            if (enteredPassword === mainPassword) {
                 document.getElementById('login').style.display = 'none';
                 document.getElementById('main').style.display = 'block';
                 connectMQTT();
             } else {
                 document.getElementById('loginError').innerText = "Falsches Passwort!";
+            }
+        }
+
+        function checkExtraPassword() {
+            const enteredPassword = document.getElementById('extraPassword').value;
+            if (enteredPassword === extraPassword) {
+                document.getElementById('extraLogin').style.display = 'none';
+                document.getElementById('extra').style.display = 'block';
+            } else {
+                document.getElementById('extraLoginError').innerText = "Falsches Passwort!";
             }
         }
 
@@ -128,24 +159,35 @@
             client.publish("balloon/control", "release");
         }
 
-        function showProgramming() {
+        function showExtra() {
             document.getElementById('main').style.display = 'none';
+            document.getElementById('extraLogin').style.display = 'block';
+        }
+
+        function backToMain() {
+            document.getElementById('extraLogin').style.display = 'none';
+            document.getElementById('extra').style.display = 'none';
+            document.getElementById('main').style.display = 'block';
+        }
+
+        function showProgramming() {
+            document.getElementById('extra').style.display = 'none';
             document.getElementById('programming').style.display = 'block';
         }
 
         function hideProgramming() {
             document.getElementById('programming').style.display = 'none';
-            document.getElementById('main').style.display = 'block';
+            document.getElementById('extra').style.display = 'block';
         }
 
         function showRandomProgram() {
-            document.getElementById('main').style.display = 'none';
+            document.getElementById('extra').style.display = 'none';
             document.getElementById('randomProgram').style.display = 'block';
         }
 
         function hideRandomProgram() {
             document.getElementById('randomProgram').style.display = 'none';
-            document.getElementById('main').style.display = 'block';
+            document.getElementById('extra').style.display = 'block';
         }
 
         function startProgram() {
@@ -164,64 +206,64 @@
 
             function executeStep() {
                 if (currentStep <= steps) {
-                    let size = Math.floor(maxSize / steps) * currentStep;
+                    let size = Math.floor((maxSize / steps) * currentStep);
                     client.publish("balloon/control", "size:" + size);
                     currentStep++;
                 } else {
-                    client.publish("balloon/control", "release");
+                    if (programType === "1" || programType === "2") {
+                        client.publish("balloon/control", "release");
+                    }
                     currentStep = 0;
                     currentRepetition++;
-                    if (currentRepetition >= repetitions) {
-                        clearInterval(intervalId);
+                }
+
+                if (currentRepetition >= repetitions) {
+                    clearInterval(intervalId);
+                }
+            }
+
+            if (programType === "1") {
+                intervalId = setInterval(() => {
+                    executeStep();
+                    setTimeout(() => {
+                        if (currentStep === steps) {
+                            setTimeout(executeStep, 180000);
+                        }
+                    }, holdTime);
+                }, holdTime + 30000);
+            } else if (programType === "2") {
+                intervalId = setInterval(executeStep, holdTime + 120000);
+            } else if (programType === "3") {
+                intervalId = setInterval(() => {
+                    executeStep();
+                    if (currentStep > 0) {
+                        setTimeout(() => {
+                            client.publish("balloon/control", "size:" + Math.floor((maxSize / steps) * (currentStep - 1)));
+                        }, 60000);
                     }
-                }
+                }, 120000);
             }
-
-            function executeProgram() {
-                switch (programType) {
-                    case "1":
-                        executeStep();
-                        break;
-                    case "2":
-                        executeStep();
-                        break;
-                    case "3":
-                        executeStep();
-                        break;
-                }
-            }
-
-            intervalId = setInterval(executeProgram, holdTime + pauseTime + restTime);
         }
 
         function startRandomProgram() {
-            const duration = parseInt(document.getElementById('randomDuration').value) * 1000;
-            const maxSize = parseInt(document.getElementById('randomMaxSize').value);
+            const randomDuration = parseInt(document.getElementById('randomDuration').value) * 1000;
+            const randomMaxSize = parseInt(document.getElementById('randomMaxSize').value);
 
             if (intervalId) clearInterval(intervalId);
 
-            function randomSize() {
-                return Math.floor(Math.random() * (maxSize + 1));
+            const startTime = Date.now();
+
+            function randomStep() {
+                const size = Math.floor(Math.random() * (randomMaxSize + 1));
+                client.publish("balloon/control", "size:" + size);
             }
 
-            function randomDuration() {
-                return Math.floor(Math.random() * 10000) + 1000;
-            }
-
-            const endTime = Date.now() + duration;
-
-            function executeRandom() {
-                if (Date.now() < endTime) {
-                    const size = randomSize();
-                    const duration = randomDuration();
-                    client.publish("balloon/control", "size:" + size);
-                    setTimeout(executeRandom, duration);
-                } else {
-                    client.publish("balloon/control", "release");
+            intervalId = setInterval(() => {
+                randomStep();
+                if (Date.now() - startTime >= randomDuration) {
+                    clearInterval(intervalId);
                 }
-            }
-
-            executeRandom();
+            }, Math.floor(Math.random() * 60000) + 1000);
         }
     </script>
 </body>
